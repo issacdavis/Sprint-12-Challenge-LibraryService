@@ -37,14 +37,29 @@ public class LibraryService {
         return libraryRepository.findAll();
     }
 
+//    public Library getLibraryByName(String name) {
+//        Library library = new Library(name);
+//        if (libraryRepository.findByName(name).isPresent()) {
+//            return library;
+//        } else {
+//            throw new LibraryNotFoundException("Library not found.");
+//        }
+//    }
+
     public Library getLibraryByName(String name) {
-        Library library = new Library(name);
-        if (libraryRepository.findByName(name).isPresent()) {
-            return library;
-        } else {
-            throw new LibraryNotFoundException("Library not found.");
+        Optional<Library> library = libraryRepository.findByName(name);
+        if (library.isEmpty()) {
+            library = getLibraries()
+                    .stream()
+                    .filter(l -> l.getName().equals(name))
+                    .findFirst();
+            if(library.isEmpty()){
+                throw new LibraryNotFoundException(String.format("Library with the name: %s was not found", name));
+            }
         }
+        return library.get();
     }
+
 
     public void save(Library library) {
         List<Library> libraries = libraryRepository.findAll();
@@ -59,8 +74,7 @@ public class LibraryService {
 //         return the amount
 //         If Checkable does not exist, return checkable amount as 0.
 
-//        Library library = getLibraryByName(libraryName);
-        Library library = libraryRepository.findByName(libraryName).orElseThrow(() -> new LibraryNotFoundException("Lib"));
+        Library library = getLibraryByName(libraryName);
 
         Checkable checkable = checkableService.getByIsbn(checkableIsbn);
 
@@ -81,16 +95,14 @@ public class LibraryService {
 //        For every library, call getCheckableAmount()
 //        If the amount is greater than 0, create a new Library available checkout object and add it to available List
 
-//        List<LibraryAvailableCheckouts> available = new ArrayList<>();
-
         List<Library> libraries = getLibraries();
-        Checkable checkable = checkableService.getByIsbn(isbn);
         List<LibraryAvailableCheckouts> available = new ArrayList<>();
+        Checkable checkable = checkableService.getByIsbn(isbn);
 
         for (Library library : libraries) {
 //            int amount = getCheckableAmount(library.getName(), checkable.getIsbn()).getAmount();
             for (CheckableAmount checkableAmount : library.getCheckables()) {
-                if (checkableAmount.getCheckable().getIsbn().equals(isbn) && checkableAmount.getAmount() > 0) {
+                if (checkableAmount.getCheckable().getIsbn().equals(checkable.getIsbn()) && checkableAmount.getAmount() > 0) {
                     LibraryAvailableCheckouts libraryAvailableCheckouts = new LibraryAvailableCheckouts(checkableAmount.getAmount(), library.getName());
                     available.add(libraryAvailableCheckouts);
                 }
@@ -113,9 +125,8 @@ public class LibraryService {
 //        Overdue Checkout constructor requires Patron object
 
         List<OverdueCheckout> overdueCheckouts = new ArrayList<>();
-//        Library library = getLibraryByName(libraryName);
-        Library library = libraryRepository.findByName(libraryName)
-                .orElseThrow(() -> new LibraryNotFoundException("Library Not Found"));
+        Library library = getLibraryByName(libraryName);
+
         Set<LibraryCard> libraryCards = library.getLibraryCards();
 
         for (LibraryCard libraryCard : libraryCards) {
